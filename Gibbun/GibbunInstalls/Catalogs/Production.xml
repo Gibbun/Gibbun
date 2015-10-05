@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog>
+	<software>
+		<name>GoogleChrome</name>
+		<version>35.7</version>
+		<installer_location>/Google/Chrome/35.7.msi</installer_location>
+	</software>
+	<software>
+		<name>MozillaFirefox</name>
+		<version>31.3.0</version>
+		<installer_location>/Mozilla/Firefox/32.0.0.exe</installer_location>
+	</software>
+	<software>
+		<name>MozillaFirefox</name>
+		<version>33.4.0</version>
+		<installer_location>/Mozilla/Firefox/32.0.0.exe</installer_location>
+	</software>
+</catalog>

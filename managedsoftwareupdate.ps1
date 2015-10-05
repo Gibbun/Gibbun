@@ -83,9 +83,9 @@ Write-Verbose "Starting...."
 ### END OF RUNNING AS ADMIN CHECK ################################################################################################
 ##################################################################################################################################
 
-################################################################################################
-### MANAGEDINSTALLS.XML ########################################################################
-################################################################################################
+#################################################################################################################
+### MANAGEDINSTALLS.XML #########################################################################################
+#################################################################################################################
  
 Write-Verbose "Loading ManagedInstalls.XML"
 #Check that ManagedInstalls.XML exists
@@ -98,28 +98,91 @@ If (!(Test-Path ($gibbunManagedInstallsXMLPath)))
 #Load ManagedInstalls.xml file into variable $managedInstallsXML
 [xml]$managedInstallsXML = Get-Content ($gibbunManagedInstallsXMLPath)
 
-#Parse ManagedInstalls.xml and insert necessary data into variables
-$client_Identifier = $managedInstallsXML.dict.ClientIdentifier
-$installWindowsUpdates = $managedInstallsXML.dict.InstallWindowsUpdates
-$windowsUpdatesOnly = $managedInstallsXML.dict.WindowsUpdatesOnly
-[int]$daysBetweenWindowsUpdates = [int]$managedInstallsXML.dict.DaysBetweenWindowsUpdates
-[DateTime]$lastWindowsUpdateCheck = [DateTime]$managedInstallsXML.dict.LastWindowsUpdateCheck
-$logFilePath = $managedInstallsXML.dict.LogFile
-$loggingEnabled = $managedInstallsXML.dict.LoggingEnabled
-$softwareRepoURL = $managedInstallsXML.dict.SoftwareRepoURL
+#Parse ManagedInstalls.xml and insert necessary data into variables. Report error messages if encountered.
+Try
+    {
+    $client_Identifier = $managedInstallsXML.ManagedInstalls.ClientIdentifier
+    }
+Catch
+    {
+    Write-Warning "ManagedInstall.XML is missing ClientIdentifier..."
+    }
+
+Try
+    {
+    $installWindowsUpdates = $managedInstallsXML.ManagedInstalls.InstallWindowsUpdates
+    }
+Catch
+    {
+    Write-Warning "ManagedInstall.XML is missing installWindowsUpdates..."
+    }
+
+Try
+    {
+    $windowsUpdatesOnly = $managedInstallsXML.ManagedInstalls.WindowsUpdatesOnly
+    }
+Catch
+    {
+    Write-Warning "ManagedInstall.XML is missing WindowsUpdatesOnly..."
+    }
+
+Try
+    {
+    [int]$daysBetweenWindowsUpdates = [int]$managedInstallsXML.ManagedInstalls.DaysBetweenWindowsUpdates
+    }
+Catch
+    {
+    Write-Warning "ManagedInstall.XML is missing DaysBetweenWindowsUpdates..."
+    }
+
+Try
+    {
+    [DateTime]$lastWindowsUpdateCheck = [DateTime]$managedInstallsXML.ManagedInstalls.LastWindowsUpdateCheck
+    }
+Catch
+    {
+    Write-Warning "ManagedInstall.XML is missing LastWindowsUpdateCheck..."
+    }
+
+Try
+    {
+    $logFilePath = $managedInstallsXML.ManagedInstalls.LogFile
+    }
+Catch
+    {
+    Write-Warning "ManagedInstall.XML is missing LogFile..."
+    }
+
+Try
+    {
+    $loggingEnabled = $managedInstallsXML.ManagedInstalls.LoggingEnabled
+    }
+Catch
+    {
+    Write-Warning "ManagedInstall.XML is missing LoggingEnabled..."
+    }
+
+Try
+    {
+    $softwareRepoURL = $managedInstallsXML.ManagedInstalls.SoftwareRepoURL
+    }
+Catch
+    {
+    Write-Warning "ManagedInstall.XML is missing SoftwareRepoURL..."
+    }
 
 #convert boolean values in XML from strings to actual boolean
 [bool]$installWindowsUpdates = [System.Convert]::ToBoolean($installWindowsUpdates)
 [bool]$windowsUpdatesOnly = [System.Convert]::ToBoolean($windowsUpdatesOnly)
 [bool]$loggingEnabled = [System.Convert]::ToBoolean($loggingEnabled)
 
-################################################################################################
-### END OF MANAGEDINSTALLS.XML #################################################################
-################################################################################################
+#################################################################################################################
+### END OF MANAGEDINSTALLS.XML ##################################################################################
+#################################################################################################################
 
-###################################################################
-### DIRECTORY CHECK ###############################################
-######################## ##########################################
+#############################################################################################################
+### DIRECTORY CHECK #########################################################################################
+######################## ####################################################################################
 
 #Create GibbunInstalls folder if it doesn't exist.
 New-Item -ItemType Directory -Force -Path $logFilePath | Out-Null
@@ -136,23 +199,26 @@ New-Item -ItemType Directory -Force -Path (Join-Path $gibbunInstallDir GibbunIns
 #Create Downloads folder if it doesn't exist.
 New-Item -ItemType Directory -Force -Path (Join-Path $gibbunInstallDir GibbunInstalls\Catalogs) | Out-Null
 
-###################################################################
-### END OF DIRECTORY CHECK ########################################
-######################## ##########################################
+#############################################################################################################
+### END OF DIRECTORY CHECK ##################################################################################
+######################## ####################################################################################
 
-###########################################################
-###   LOGGING   ###########################################
-###########################################################
+##################################################################################
+###   LOGGING   ##################################################################
+##################################################################################
 
-Start-Transcript -path (Join-Path $logFilePath -ChildPath Gibbun.log) -Append
+If ($loggingEnabled)
+    {
+    Start-Transcript -path (Join-Path $logFilePath -ChildPath Gibbun.log) -Append
+    }
 
-###########################################################
-###   END OF LOGGING   ####################################
-###########################################################
+##################################################################################
+###   END OF LOGGING   ###########################################################
+##################################################################################
 
-############################################################################################
-### PREFLIGHT SCRIPT #######################################################################
-######################## ###################################################################
+######################################################################################################################################
+### PREFLIGHT SCRIPT #################################################################################################################
+######################## #############################################################################################################
 
 #check if preflight script exists and call it if it does exist. Exit if preflight script encounters an error.
 Write-Verbose "Checking if preflight script exists"
@@ -169,16 +235,20 @@ If (Test-Path (Join-Path $gibbunInstallDir -ChildPath preflight.ps1))
     }
 Else {Write-Verbose "Preflight script does not exist. If this is in error, please ensure script is in the Gibbun install directory"}
 
-############################################################################################
-### END OF PREFLIGHT SCRIPT ################################################################
-############################################################################################
+######################################################################################################################################
+### END OF PREFLIGHT SCRIPT ##########################################################################################################
+######################################################################################################################################
 
 ###########################################################################################################################################################################################################################################
 ### DOWNLOAD INITIAL MANIFEST #############################################################################################################################################################################################################
 ###########################################################################################################################################################################################################################################
 
 #import BitsTransfer module
+Write-Verbose "Importing BitsTransfer Module"
 IPMO BitsTransfer
+
+#create $haveManifest variable, will be changed to false if unable to find a manifest
+$haveManifest = $True
 
 If (-Not(($windowsUpdatesOnly)))
     {
@@ -221,7 +291,7 @@ If (-Not(($windowsUpdatesOnly)))
 ### LOAD INITIAL MANIFEST #################################################################################################
 ###########################################################################################################################
 
-If (-Not(($windowsUpdatesOnly)))
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
     #Load $manifest.xml file into variable $manifestXML
     [xml]$initialManifestXML = (Get-Content ($gibbunInstallDir + "\GibbunInstalls\Manifests\" + $initialManifest + ".xml"))
@@ -234,10 +304,10 @@ If (-Not(($windowsUpdatesOnly)))
 ### OBTAIN LIST OF NESTED MANIFESTS ######################################################
 ##########################################################################################
 
-If (-Not(($windowsUpdatesOnly)))
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
     #load list of Gibbun software installs from initial manifest into nestedManifestArray
-    $nestedManifestArray = $initialManifestXML.dict.NestedManifest.manifest
+    $nestedManifestArray = $initialManifestXML.manifest.NestedManifest.manifest
 
     #uncomment next line to display list of nested manifests held in $nestedManifestArray
     #Get-Variable nestedManifestArray
@@ -251,7 +321,7 @@ If (-Not(($windowsUpdatesOnly)))
 ### DOWNLOAD NESTED MANIFESTS ############################################################################################################################################################################################################
 ##########################################################################################################################################################################################################################################
 
-If (-Not(($windowsUpdatesOnly)))
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
     foreach ($nestedManifest in $nestedManifestArray)
         {      
@@ -274,14 +344,14 @@ If (-Not(($windowsUpdatesOnly)))
 ### END OF DOWNLOAD NESTED MANIFESTS #####################################################################################################################################################################################################
 ##########################################################################################################################################################################################################################################
 
-##################################################################################################################
-### OBTAIN LIST OF Gibbun SOFTWARE INSTALLS ######################################################################
-##################################################################################################################
+################################################################################################################################
+### OBTAIN LIST OF GIBBUN SOFTWARE INSTALLS ####################################################################################
+################################################################################################################################
 
-If (-Not(($windowsUpdatesOnly)))
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
     #load list of Gibbun software installs from initial manifest into variable gibbunSoftware
-    [array]$gibbunSoftware = $initialManifestXML.dict.software.program
+    [array]$gibbunSoftware = $initialManifestXML.manifest.software.program
 
     #load nested manifests XML files into XML variable and then add nested installs into gibbunSoftware variable
     foreach ($nestedManifest in $nestedManifestArray)
@@ -290,7 +360,7 @@ If (-Not(($windowsUpdatesOnly)))
         [xml]$nestedManifestXML = (Get-Content ($gibbunInstallDir + "\GibbunInstalls\Manifests\" + $nestedManifest + ".xml"))
 
         #add install items from nested manifests to
-        $gibbunSoftware += $nestedManifestXML.dict.software.program
+        $gibbunSoftware += $nestedManifestXML.manifest.software.program
         }
 
     #remove any duplicate installs from gibbunSoftware variable
@@ -301,23 +371,23 @@ If (-Not(($windowsUpdatesOnly)))
 
     }
 
-##################################################################################################################
-### END OF OBTAIN LIST OF Gibbun SOFTWARE INSTALLS ###############################################################
-##################################################################################################################
+################################################################################################################################
+### END OF OBTAIN LIST OF GIBBUN SOFTWARE INSTALLS #############################################################################
+################################################################################################################################
 
 ###########################################################################################
 ### OBTAIN LIST OF CATALOGS ###############################################################
 ###########################################################################################
 
-If (-Not(($windowsUpdatesOnly)))
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
     #load list of catalogs from initial manifest into catalogs array
-    [array]$catalogs = $initialManifestXML.dict.catalogs.catalog
+    [array]$catalogs = $initialManifestXML.manifest.catalogs.catalog
 
     #load list of catalogs from nested manifests
     foreach ($nestedManifest in $nestedManifestArray)
         {
-        $catalogs += $nestedManifestXML.dict.catalogs.catalog
+        $catalogs += $nestedManifestXML.manifest.catalogs.catalog
         }
 
     #remove any duplicate catalogs from catalogs variable
@@ -331,11 +401,11 @@ If (-Not(($windowsUpdatesOnly)))
 ### END OF OBTAIN LIST OF NESTED MANIFESTS ################################################
 ###########################################################################################
 
-##########################################################################################################################################################################################################################################
-### DOWNLOAD CATALOGS ####################################################################################################################################################################################################################
-##########################################################################################################################################################################################################################################
+###########################################################################################################################################################################################################################
+### DOWNLOAD CATALOGS #####################################################################################################################################################################################################
+###########################################################################################################################################################################################################################
 
-If (-Not(($windowsUpdatesOnly)))
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
     foreach ($catalog in $catalogs)
         {      
@@ -345,7 +415,7 @@ If (-Not(($windowsUpdatesOnly)))
         Try
             {
             Start-BitsTransfer -Source ($softwareRepoURL + "/catalogs/" + $catalog + ".xml") -Destination ($gibbunInstallDir + "\GibbunInstalls\Catalogs\" + $catalog + ".xml") -TransferType Download -ErrorAction Stop
-            Write-Verbose "Using manifest $catalog"
+            Write-Verbose "Using catalog $catalog"
             }
         Catch
             {
@@ -354,15 +424,15 @@ If (-Not(($windowsUpdatesOnly)))
         }
     }
 
-##########################################################################################################################################################################################################################################
-### END OF DOWNLOAD CATALOGS #############################################################################################################################################################################################################
-##########################################################################################################################################################################################################################################
+###########################################################################################################################################################################################################################
+### END OF DOWNLOAD CATALOGS ##############################################################################################################################################################################################
+###########################################################################################################################################################################################################################
 
-###########################################################################################
-### OBTAIN SOFTWARE VERSIONS ##############################################################
-###########################################################################################
+###################################################################################################################################################################################
+### OBTAIN SOFTWARE VERSIONS ######################################################################################################################################################
+###################################################################################################################################################################################
 
-If (-Not(($windowsUpdatesOnly)))
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
     #create variable $softwareVersionsArray
     [array]$softwareVersionsArray
@@ -376,19 +446,54 @@ If (-Not(($windowsUpdatesOnly)))
         #obtain software from currently loaded catalog and add it to $softwareVersionsArray variable for safe-keeping
         $softwareVersionsArray = ($softwareVersionsArray + ($catalogXML.catalog.software))
         }
-    #display $softwareVersionsArray
-    $softwareVersionsArray|group name|%{$_.Group[0]}
+    #pipe list of software to be installed into $softwareVersionsArray
+    $softwareToBeInstalled = $softwareVersionsArray|Group-Object name|ForEach-Object {$_.Group[0]}
+    
+    #display software that will be installed
+    Write-Host "The following software will be installed:"
+    $softwareToBeInstalled
+
     }
 
-###########################################################################################
-### END OF OBTAIN SOFTWARE VERSIONS #######################################################
-###########################################################################################
+###################################################################################################################################################################################
+### END OF OBTAIN SOFTWARE VERSIONS ###############################################################################################################################################
+###################################################################################################################################################################################
 
-###########################################################################################
-### WINDOWS UPDATES #######################################################################
-###########################################################################################
+###########################################################################################################################################################################################################################
+### DOWNLOAD GIBBUN SOFTWARE INSTALLS #####################################################################################################################################################################################################
+###########################################################################################################################################################################################################################
+
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
+    {
+    foreach ($package in $softwareVersionsArray)
+        {      
+        $softwareName =
+        $softwareVersion =
+        $softwareInstallerLocation =
+        Write-Host "Downloading $softwareName $softwareVersion"
+    
+        <#Attempt to download package
+        Try
+            {
+            Start-BitsTransfer -Source ($softwareRepoURL + "/pkgs/" + $softwareInstallerLocation) -Destination ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerLocation) -TransferType Download -ErrorAction Stop
+            }
+        Catch
+            {
+            Write-Verbose "Encountered an error downloading $softwareName $softwareVersion"
+            }#>
+        }
+    }
+
+###########################################################################################################################################################################################################################
+### END OF DOWNLOAD GIBBUN SOFTWARE INSTALLS ##############################################################################################################################################################################################
+###########################################################################################################################################################################################################################
+
+###########################################################################################################################
+### WINDOWS UPDATES #######################################################################################################
+###########################################################################################################################
 
 #import PowerShell Windows Update modules
+Write-Verbose "Importing Windows Update Modules"
 IPMO (Join-Path $gibbunInstallDir -ChildPath Resources\WindowsUpdatePowerShellModule\PSWindowsUpdate)
 
 #Check if $installWindowsUpdates is true in ManagedInstalls.XML. Skip Windows Updates if False.
@@ -418,15 +523,15 @@ If ($installWindowsUpdates -or $windowsUpdatesOnly)
         }
     }
 
-###########################################################################################
-### END OF WINDOWS UPDATES ################################################################
-###########################################################################################
+###########################################################################################################################
+### END OF WINDOWS UPDATES ################################################################################################
+###########################################################################################################################
 
 Write-Verbose "Finishing..."
 
-##############################################################################################
-### POSTFLIGHT SCRIPT ########################################################################
-######################### ####################################################################
+######################################################################################################################################
+### POSTFLIGHT SCRIPT ################################################################################################################
+######################### ############################################################################################################
 
 #check if postflight script exists and call it if it does exist. Exit if postflight script encounters an error.
 Write-Verbose "Checking if postflight script exists"
@@ -443,9 +548,9 @@ If (Test-Path (Join-Path $gibbunInstallDir -ChildPath postflight.ps1))
     }
 Else {Write-Verbose "Postflight script does not exist. If this is in error, please ensure script is in the Gibbun install directory"}
 
-##############################################################################################
-### END OF POSTFLIGHT SCRIPT #################################################################
-##############################################################################################
+######################################################################################################################################
+### END OF POSTFLIGHT SCRIPT #########################################################################################################
+######################################################################################################################################
 
 ################################################################################################
 ### PENDING REBOOT CHECK #######################################################################
