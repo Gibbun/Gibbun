@@ -1,0 +1,32 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<dict>
+  <key>AdditionalHttpHeaders</key>
+  <array>
+    <string>Authorization: Basic bXVua2k6NmNEZC01TWIxLWVHZjEtZDVZOC03NGUwLWQ4UWY=</string>
+  </array>
+  <ClientIdentifier>swan-sab132</ClientIdentifier>
+  <InstallWindowsUpdates>true</InstallWindowsUpdates>
+  <WindowsUpdatesOnly>false</WindowsUpdatesOnly>
+  <DaysBetweenWindowsUpdates>1</DaysBetweenWindowsUpdates>
+  <LastWindowsUpdateCheck>09/22/2015 14:37:35</LastWindowsUpdateCheck>
+  <LastCheckResult>0</LastCheckResult>
+  <LogFile>C:\Windows\System32\LogFiles\Gibbon</LogFile>
+  <LoggingEnabled>true</LoggingEnabled>
+  <SoftwareRepoURL>http://users.admin.illinois.edu/coobs1/Gibbon/gibbon_repo</SoftwareRepoURL>
+  <key>PackageVerificationMode</key>
+  <string>hash</string>
+  <key>PendingUpdateCount</key>
+  <integer>0</integer>
+  <string>https://munki.admin.illinois.edu/</string>
+  <key>SoftwareUpdateServerURL</key>
+  <string>
+  </string>
+  <key>SuppressAutoInstall</key>
+  <false />
+  <key>SuppressStopButtonOnInstall</key>
+  <false />
+  <key>SuppressUserNotification</key>
+  <false />
+  <key>UseClientCertificate</key>
+  <false />
+</dict>

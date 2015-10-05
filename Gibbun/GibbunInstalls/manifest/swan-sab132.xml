@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<dict>
+	<key>catalogs</key>
+	<key>nestedmanifest</key>
+	<NestedManifest>
+		<manifest>uni-common-software</manifest>
+		<manifest>uni-default</manifest>
+	</NestedManifest>
+	<array>
+		<string>production</string>
+	</array>
+	<key>conditional_items</key>
+	<array>
+		<dict>
+			<key>condition</key>
+			<string>os_vers BEGINSWITH "10.10"</string>
+		</dict>
+	</array>
+	<key>included_manifests</key>
+	<array/>
+	<key>managed_installs</key>
+	<software>
+		<program>GoogleChrome</program>
+		<program>MozillaFirefox</program>
+	</software>
+	<key>managed_uninstalls</key>
+	<array/>
+	<key>managed_updates</key>
+	<array/>
+	<key>optional_installs</key>
+	<array/>
+</dict>

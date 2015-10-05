@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>catalogs</key>
+	<array>
+		<string>production</string>
+	</array>
+	<key>conditional_items</key>
+	<array>
+		<dict>
+			<key>condition</key>
+			<string>os_vers BEGINSWITH "10.10"</string>
+		</dict>
+	</array>
+	<key>included_manifests</key>
+	<array/>
+	<key>managed_installs</key>
+	<array>
+		<string>Adium</string>
+		<string>Arduino</string>
+		<string>Audacity</string>
+		<string>Avogadro</string>
+		<string>ChemDoodle</string>
+		<string>Cyberduck</string>
+		<string>GarageBand</string>
+		<string>GeoGebra</string>
+		<string>Google Picasa</string>
+		<string>GoogleEarth</string>
+		<string>Handbrake</string>
+		<string>iMovie</string>
+		<string>iPhoto</string>
+		<string>Keynote</string>
+		<string>MacTeX</string>
+		<string>Marvin Beans</string>
+		<string>Mathematica</string>
+		<string>Molecular Workbench</string>
+		<string>NetLogo</string>
+		<string>Numbers</string>
+		<string>OpenSCAD</string>
+		<string>Pages</string>
+		<string>R</string>
+		<string>RStudio</string>
+		<string>Scratch</string>
+		<string>SilhouetteStudio</string>
+		<string>SketchUp</string>
+		<string>Stellarium</string>
+		<string>TIConnect™ApplicationSuite</string>
+		<string>Vernier Logger Pro</string>
+		<string>VLC</string>
+	</array>
+	<key>managed_uninstalls</key>
+	<array/>
+	<key>managed_updates</key>
+	<array/>
+	<key>optional_installs</key>
+	<array/>
+</dict>
+</plist>
