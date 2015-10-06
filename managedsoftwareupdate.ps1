@@ -465,22 +465,29 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
-    foreach ($package in $softwareVersionsArray)
+    foreach ($package in $softwareToBeInstalled)
         {      
-        $softwareName =
-        $softwareVersion =
-        $softwareInstallerLocation =
+        $softwareName = $package.name
+        $softwareVersion = $package.version
+        $softwareInstallerLocation = $package.installer_location
         Write-Host "Downloading $softwareName $softwareVersion"
     
-        <#Attempt to download package
+        #Attempt to download package
         Try
             {
-            Start-BitsTransfer -Source ($softwareRepoURL + "/pkgs/" + $softwareInstallerLocation) -Destination ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerLocation) -TransferType Download -ErrorAction Stop
+            #replace backslashes with forward slashes to correct web server path to work for download path
+            $softwareInstallerDownloadLocation=$softwareInstallerLocation -replace "/", "\"
+
+            #Create download directory if it doesn't exist.
+            New-Item -ItemType Directory -Force -Path ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) | Out-Null
+
+            #download installer
+            Start-BitsTransfer -Source ($softwareRepoURL + "/pkgs/" + $softwareInstallerLocation) -Destination ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) -TransferType Download -ErrorAction Stop
             }
         Catch
             {
             Write-Verbose "Encountered an error downloading $softwareName $softwareVersion"
-            }#>
+            }
         }
     }
 
