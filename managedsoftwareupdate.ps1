@@ -446,13 +446,25 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
         #obtain software from currently loaded catalog and add it to $softwareVersionsArray variable for safe-keeping
         $softwareVersionsArray = ($softwareVersionsArray + ($catalogXML.catalog.software))
         }
+
     #pipe list of software to be installed into $softwareVersionsArray
-    $softwareToBeInstalled = $softwareVersionsArray|Group-Object name|ForEach-Object {$_.Group[0]}
+    $softwareVersions = $softwareVersionsArray|Group-Object name|ForEach-Object {$_.Group[0]}
     
+    #create $finalSoftwareVariable to avoid fixed size error when removing objects from array    
+    [system.collections.arraylist]$finalSoftwareVersions = $softwareVersions
+     
+    #determine packages in catalog that intersect with manifest. remove those that do not intersect   
+    foreach ($package in $softwareVersions)
+        {       
+        If ($gibbunSoftware -notcontains $package.name)
+            {
+            $finalSoftwareVersions.Remove($package)
+            }
+        }
+
     #display software that will be installed
     Write-Host "The following software will be installed:"
-    $softwareToBeInstalled
-
+    $finalSoftwareVersions
     }
 
 ###################################################################################################################################################################################
@@ -465,7 +477,7 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
-    foreach ($package in $softwareToBeInstalled)
+    foreach ($package in $finalSoftwareVersions)
         {      
         $softwareName = $package.name
         $softwareVersion = $package.version
