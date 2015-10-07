@@ -482,7 +482,7 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
             New-Item -ItemType Directory -Force -Path ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) | Out-Null
 
             #download installer
-            Start-BitsTransfer -Source ($softwareRepoURL + "/pkgs/" + $softwareInstallerLocation) -Destination ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) -TransferType Download -ErrorAction Stop
+            Start-BitsTransfer -Source ($softwareRepoURL + "/packages/" + $softwareInstallerLocation) -Destination ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) -TransferType Download -ErrorAction Stop
             }
         Catch
             {
