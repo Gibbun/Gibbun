@@ -462,6 +462,25 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
             }
         }
 
+    #creates empty array $softwareMissingCatalog and pass it to a collection
+    $softwareMissingCatalog = {$null}.Invoke()
+
+    #determine packages in manifest that do not have a matching catalog   
+    foreach ($software in $gibbunSoftware)
+        {       
+        If (-not($softwareVersions.name.Contains($software)))
+            {
+            $softwareMissingCatalog.add($software)
+            }
+        }
+    
+    #if $softwareMissingCatalog is not empty, display software that is missing a catalog
+    If ($softwareMissingCatalog -ne $null)
+        {
+        Write-Host "The following software is missing a catalog:"
+        $softwareMissingCatalog
+        }
+
     #display software that will be installed
     Write-Host "The following software will be installed:"
     $finalSoftwareVersions
