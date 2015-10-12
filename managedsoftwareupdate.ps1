@@ -467,9 +467,9 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 ### END OF OBTAIN SOFTWARE VERSIONS ###############################################################################################################################################
 ###################################################################################################################################################################################
 
-###########################################################################################################
-### OBTAIN REQUIRED SOFTWARE VERSIONS #####################################################################
-###########################################################################################################
+#####################################################################################################################
+### OBTAIN REQUIRED INSTALL SOFTWARE VERSIONS #######################################################################
+#####################################################################################################################
 
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
@@ -513,36 +513,13 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
         }
     }
 
-###########################################################################################################
-### END OF OBTAIN REQUIRED SOFTWARE VERSIONS ##############################################################
-###########################################################################################################
-
-###########################################################################################################
-### DETERMINE DOWNLOADS ###################################################################################
-###########################################################################################################
-
-If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
-    {
-    #create $packageDownloads to avoid fixed size error when removing objects from array    
-    [system.collections.arraylist]$packageDownloads = $finalSoftwareVersions
-
-    #determine packages in client manifest that intersect with required installs. remove the duplicates to prevent duplicate downloads  
-    ForEach ($package in $finalRequiredSoftwareVersions)
-        {       
-        If (-Not($packageDownloads.name.requires.Contains($package.requires.name)))
-            {
-            $softwareDownloads.Add($package)
-            }
-        }
-    }
-
 #####################################################################################################################
-### END OF DETERMINE DOWNLOADS ######################################################################################
+### END OF OBTAIN REQUIRED INSTALL SOFTWARE VERSIONS ################################################################
 #####################################################################################################################
 
-############################################################################################################################
-### DETERMINE PACKAGES MISSING A CATALOG ###################################################################################
-############################################################################################################################
+#######################################################################################
+### DETERMINE PACKAGES MISSING A CATALOG ##############################################
+#######################################################################################
 
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
@@ -566,11 +543,87 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
             $softwareMissingCatalog.Add($package.requires.name)
             }
         }
+    #remove duplciates from $softwareMissingCatalog
+    $softwareMissingCatalog = $softwareMissingCatalog|Group-Object name|ForEach-Object {$_.Group[0]}
     }
 
-############################################################################################################################
-### END OF DETERMINE PACKAGES MISSING A CATALOG ############################################################################
-############################################################################################################################
+#######################################################################################
+### END OF DETERMINE PACKAGES MISSING A CATALOG #######################################
+#######################################################################################
+
+#########################################################################################################################################
+### DETERMINE DUPLICATE PACKAGES IN INSTALLS & REQUIRED INSTALLS  #######################################################################
+#########################################################################################################################################
+
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
+    {
+    #create $packageDownloads to avoid fixed size error when removing objects from array    
+    [system.collections.arraylist]$packageDownloads = $finalSoftwareVersions
+
+    #determine packages in client manifest that intersect with required installs. remove the duplicates to prevent duplicate downloads  
+    ForEach ($package in $finalRequiredSoftwareVersions)
+        {       
+        Try
+            {
+            If (-Not($packageDownloads.name.requires.Contains($package.requires.name)))
+                {
+                $packageDownloads.Add($package)
+                }
+            }
+        Catch
+            {
+            }
+        }
+    }
+
+#########################################################################################################################################
+### END OF DETERMINE DUPLICATE PACKAGES IN INSTALLS & REQUIRED INSTALLS #################################################################
+#########################################################################################################################################
+
+#####################################################################################################################################
+### DETERMINE WHICH PACKAGES ACTUALLY NEED INSTALLED ################################################################################
+#####################################################################################################################################
+
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
+    {
+    #for each required software install, check if preinstall check script exists. If it does, run it.
+    ForEach ($package in $packageDownloads)
+        {
+        If ($package.installcheck_script -ne $Null)
+            {
+            #read install check script for each software and write it to string
+            [String]$installCheck_ScriptString = $package.installcheck_script
+
+            #convert string to scriptblock
+            $installCheck_Script = [Scriptblock]::Create($installCheck_ScriptString)
+
+            #pass in the base64 encoded version of the script to avoid possible issues if it uses escape characters
+            $encodedInstallCheck_Script = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($installCheck_Script))
+            
+            #start separate powershell instance to process the install check script
+            $installCheck_ScriptProcess = (Start-Process powershell.exe -ArgumentList "-EncodedCommand",$encodedInstallCheck_Script -PassThru -Wait)
+
+            #if exit code does not equal 0, software is considered to be installed and removed from list of software to download
+            If ($installCheck_ScriptProcess.ExitCode -ne 0)
+                {
+                $packageDownloads.Remove($package)
+                }
+            }
+        #If no install check script, check if package is installed via registry
+        Else
+            {
+            }
+                        
+       
+            <#obtain software name as listed in Programs and Features in Control Panel
+            $win32name = $package.win32_name
+            $win32.version = $package.win32_version#>
+        }
+    }
+
+#####################################################################################################################################
+### END OF DETERMINE WHICH PACKAGES ACTUALLY NEED INSTALLED #########################################################################
+#####################################################################################################################################
 
 ##########################################################################################
 ### DISPLAY PACKAGES MISSING A CATALOG AND THOSE TO BE INSTALLED #########################
