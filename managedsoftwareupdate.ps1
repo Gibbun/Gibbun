@@ -557,69 +557,129 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
-    #for each required software install, check if preinstall check script exists. If it does, run it.
-    ForEach ($package in $finalRequiredSoftwareVersions)
+    #create Get-InstalledSoftware function courtesy of Jeff Wouters (http://jeffwouters.nl/index.php/2014/01/a-powershell-function-to-get-the-installed-software/)
+    Function Get-InstalledSoftware
         {
-        If ($package.installcheck_script -ne $Null -and $package.installcheck_script -ne "")
+        param (
+                [parameter(mandatory=$true)][array]$ComputerName
+              )
+        ForEach ($Computer in $ComputerName) 
             {
-            #read install check script for each software and write it to string
-            [String]$installCheck_ScriptString = $package.installcheck_script
-
-            #convert string to scriptblock
-            $installCheck_Script = [Scriptblock]::Create($installCheck_ScriptString)
-
-            #pass in the base64 encoded version of the script to avoid possible issues if it uses escape characters
-            $encodedInstallCheck_Script = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($installCheck_Script))
-            
-            #start separate powershell instance to process the install check script
-            $installCheck_ScriptProcess = (Start-Process powershell.exe -ArgumentList "-EncodedCommand",$encodedInstallCheck_Script -PassThru -Wait)
-
-            #if exit code does not equal 0, software is considered to be installed and removed from list of software to download
-            If ($installCheck_ScriptProcess.ExitCode -ne 0)
+            $OSArchitecture = (Get-WMIObject -ComputerName $computer -Class win32_operatingSystem -ErrorAction Stop).OSArchitecture
+            If ($OSArchitecture -like '*64*') 
                 {
-                $packageDownloads.Remove($package)
+                $RegistryPath = 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
                 }
-            }
-        #If no install check script, check if package is installed via registry
-        Else
-            {
-            #create Get-InstalledSoftware function courtesy of Jeff Wouters (http://jeffwouters.nl/index.php/2014/01/a-powershell-function-to-get-the-installed-software/)
-            Function Get-InstalledSoftware
-            {
-                param (
-                    [parameter(mandatory=$true)][array]$ComputerName
-                )
-                foreach ($Computer in $ComputerName) 
+            Else 
                 {
-                    #[array]$computer = localhost
-                    $OSArchitecture = (Get-WMIObject -ComputerName $computer -Class win32_operatingSystem -ErrorAction Stop).OSArchitecture
-                    If ($OSArchitecture -like '*64*') 
-                    {
-                        $RegistryPath = 'SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
-                    }
-                    Else 
-                    {
-                        $RegistryPath = 'Software\Microsoft\Windows\CurrentVersion\Uninstall'           
-                    }
-                    $Registry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('LocalMachine', $Computer)
-                    $RegistryKey = $Registry.OpenSubKey("$RegistryPath")
-                    $RegistryKey.GetSubKeyNames() | foreach {
-                        $Registry.OpenSubKey("$RegistryPath\$_") | Where-Object {($_.GetValue("DisplayName") -notmatch '(KB[0-9]{6,7})') -and ($_.GetValue("DisplayName") -ne $null)} | foreach {
-                            $Object = New-Object -TypeName PSObject
-                            $Object | Add-Member -MemberType noteproperty -Name 'Name' -Value $($_.GetValue("DisplayName"))
-                            $Object | Add-Member -MemberType noteproperty -name 'ComputerName' -value $Computer
-                            $Object
-                        }
-                    }#end of registry subkey foreach
+                $RegistryPath = 'Software\Microsoft\Windows\CurrentVersion\Uninstall'           
+                }
+                $Registry = [Microsoft.Win32.RegistryKey]::OpenRemoteBaseKey('LocalMachine', $Computer)
+                $RegistryKey = $Registry.OpenSubKey("$RegistryPath")
+                $RegistryKey.GetSubKeyNames() | foreach {
+                    $Registry.OpenSubKey("$RegistryPath\$_") | Where-Object {($_.GetValue("DisplayName") -notmatch '(KB[0-9]{6,7})') -and ($_.GetValue("DisplayName") -ne $null)} | foreach {
+                        $Object = New-Object -TypeName PSObject
+                        $Object | Add-Member -MemberType noteproperty -Name 'Name' -Value $($_.GetValue("DisplayName"))
+                        $Object | Add-Member -MemberType noteproperty -Name 'Version' -Value $($_.GetValue("DisplayVersion"))
+                        $Object
+                        }#end of get subkey properties foreach
+                    }#end of get registry subkey foreach
                 }#end of $ComputerName foreach   
             }#end of function
-           }#end of Else
-           Get-InstalledSoftware{localhost}
-       
-            <#obtain software name as listed in Programs and Features in Control Panel
-            $win32name = $package.win32_name
-            $win32.version = $package.win32_version#>
+    
+    #call Get-InstalledSoftware function and write it to $installedSoftware
+    $installedSoftware = Get-InstalledSoftware{localhost}
+
+    #uncomment next line to display all software installed
+    #Get-InstalledSoftware{localhost}
+
+    #create $notInstalledSoftware array list to avoid fixed size error when removing objects from array    
+    [system.collections.arraylist]$notInstalledSoftware = $finalSoftwareVersions
+    
+    #for each software install, check if preinstall check script exists. If it does, run it.
+    Try
+        {
+        ForEach ($package in $finalSoftwareVersions)
+            {
+            If ($package.installcheck_script -ne $Null -and $package.installcheck_script -ne "")
+                {
+                #read install check script for each software and write it to string
+                [String]$installCheck_ScriptString = $package.installcheck_script
+
+                #convert string to scriptblock
+                $installCheck_Script = [Scriptblock]::Create($installCheck_ScriptString)
+
+                #pass in the base64 encoded version of the script to avoid possible issues if it uses escape characters
+                $encodedInstallCheck_Script = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($installCheck_Script))
+            
+                #start separate powershell instance to process the install check script
+                $installCheck_ScriptProcess = (Start-Process powershell.exe -ArgumentList "-EncodedCommand",$encodedInstallCheck_Script -PassThru -Wait)
+
+                #if exit code does not equal 0, software is considered to be installed and removed from list of software to download and install
+                If ($installCheck_ScriptProcess.ExitCode -ne 0)
+                    {
+                    $notInstalledSoftware.Remove($package)
+                    }
+                }
+            #If no install check script, check if package is installed via registry
+            Else
+                {
+                #if $installedSoftware contains a required installed package name (meaning its already installed), remove it from $notInstalledSoftware
+                ForEach ($package in $finalSoftwareVersions)
+                    {
+                    If ($installedSoftware.Name.Contains($package.registry_name))
+                        {
+                        $notInstalledSoftware.remove($package)
+                        }
+                    }
+                }
+            }
         }
+    Catch{}
+
+    #create $notInstalledRequiredSoftware array list to avoid fixed size error when removing objects from array    
+    [system.collections.arraylist]$notInstalledRequiredSoftware = $finalRequiredSoftwareVersions
+    
+    #for each required software install, check if preinstall check script exists. If it does, run it.
+    Try
+        {
+        ForEach ($package in $finalRequiredSoftwareVersions)
+        {
+            If ($package.installcheck_script -ne $Null -and $package.installcheck_script -ne "")
+                {
+                #read install check script for each software and write it to string
+                [String]$installCheck_ScriptString = $package.installcheck_script
+
+                #convert string to scriptblock
+                $installCheck_Script = [Scriptblock]::Create($installCheck_ScriptString)
+
+                #pass in the base64 encoded version of the script to avoid possible issues if it uses escape characters
+                $encodedInstallCheck_Script = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($installCheck_Script))
+            
+                #start separate powershell instance to process the install check script
+                $installCheck_ScriptProcess = (Start-Process powershell.exe -ArgumentList "-EncodedCommand",$encodedInstallCheck_Script -PassThru -Wait)
+
+                #if exit code does not equal 0, software is considered to be installed and removed from list of software to download
+                If ($installCheck_ScriptProcess.ExitCode -ne 0)
+                    {
+                    $notInstalledRequiredSoftware.Remove($package)
+                    }
+                }
+            #If no install check script, check if package is installed via registry
+            Else
+                {           
+                #if $installedSoftware contains a required installed package name (meaning its already installed), remove it from $notInstalledRequiredSoftware
+                ForEach ($package in $finalRequiredSoftwareVersions)
+                    {
+                    If ($installedSoftware.Name.Contains($package.registry_name))
+                        {
+                        $notInstalledRequiredSoftware.Remove($package)
+                        }
+                    }
+                }
+            }
+        }
+    Catch{}
     }
 
 #####################################################################################################################################
@@ -632,11 +692,11 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
-    #create $packageDownloads to avoid fixed size error when removing objects from array    
-    [system.collections.arraylist]$packageDownloads = $finalSoftwareVersions
+    #create $packageDownloads array list to avoid fixed size error when removing objects from array    
+    [system.collections.arraylist]$packageDownloads = $notInstalledSoftware
 
     #determine packages in client manifest that intersect with required installs. remove the duplicates to prevent duplicate downloads  
-    ForEach ($package in $finalRequiredSoftwareVersions)
+    ForEach ($package in $notInstalledRequiredSoftware)
         {       
         Try
             {
@@ -645,9 +705,7 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
                 $packageDownloads.Add($package)
                 }
             }
-        Catch
-            {
-            }
+        Catch{}
         }
     }
 
@@ -665,7 +723,10 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     If ($softwareMissingCatalog -ne $null)
         {
         Write-Warning "The following software is missing a catalog:"
-        $softwareMissingCatalog
+        ForEach ($package in $packageDownloads)
+            {
+            Write-Warning $package.name
+            }
         #line break for easier reading
         Write-Host `n
         }
@@ -673,8 +734,13 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     If ($packageDownloads -ne $null)
         {
         Write-Host "The following packages will be downloaded and installed:"
-        $packageDownloads
-        "------------------------------------------------------------------------------------------------------------------------"
+        ForEach ($package in $packageDownloads)
+            {
+            $softwareName = $package.name
+            $softwareVersion = $package.version
+            Write "$softwareName $softwareVersion"
+            }
+        "-------------------------------------------------------------------------------------------------"
         #line break for easier reading
         Write-Host `n
         }
