@@ -145,7 +145,7 @@ Try
     }
 Catch
     {
-    Write-Warning "ManagedInstall.XML is missing ClientIdentifier..."
+    Write-Warning "Encountered an error loading ClientIdentifier from ManagedInstall.XML..."
     }
 
 Try
@@ -154,7 +154,7 @@ Try
     }
 Catch
     {
-    Write-Warning "ManagedInstall.XML is missing installWindowsUpdates..."
+    Write-Warning "Encountered an error loading installWindowsUpdates from ManagedInstall.XML..."
     }
 
 Try
@@ -163,7 +163,7 @@ Try
     }
 Catch
     {
-    Write-Warning "ManagedInstall.XML is missing WindowsUpdatesOnly..."
+    Write-Warning "Encountered an error loading WindowsUpdatesOnly from ManagedInstall.XML..."
     }
 
 Try
@@ -172,7 +172,7 @@ Try
     }
 Catch
     {
-    Write-Warning "ManagedInstall.XML is missing DaysBetweenWindowsUpdates..."
+    Write-Warning "Encountered an error loading DaysBetweenWindowsUpdates from ManagedInstall.XML..."
     }
 
 Try
@@ -181,7 +181,7 @@ Try
     }
 Catch
     {
-    Write-Warning "ManagedInstall.XML is missing LastWindowsUpdateCheck..."
+    Write-Warning "Encountered an error loading LastWindowsUpdateCheck from ManagedInstall.XML..."
     }
 
 Try
@@ -190,7 +190,7 @@ Try
     }
 Catch
     {
-    Write-Warning "ManagedInstall.XML is missing LogFile..."
+    Write-Warning "Encountered an error loading LogFile from ManagedInstall.XML..."
     }
 
 Try
@@ -199,7 +199,7 @@ Try
     }
 Catch
     {
-    Write-Warning "ManagedInstall.XML is missing LoggingEnabled..."
+    Write-Warning "Encountered an error loading LoggingEnabled from ManagedInstall.XML..."
     }
 
 Try
@@ -208,7 +208,7 @@ Try
     }
 Catch
     {
-    Write-Warning "ManagedInstall.XML is missing SoftwareRepoURL..."
+    Write-Warning "Encountered an error loading SoftwareRepoURL from ManagedInstall.XML..."
     }
 
 #convert boolean values in XML from strings to actual boolean
@@ -835,10 +835,24 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
+    
     }
 
 ###########################################################################################################################################################################################################################################
 ### END OF INSTALL GIBBUN SOFTWARE PACKAGES ###############################################################################################################################################################################################
+###########################################################################################################################################################################################################################################
+
+###########################################################################################################################################################################################################################################
+### CLEAR DOWNLOADS STAGING FOLDER ########################################################################################################################################################################################################
+###########################################################################################################################################################################################################################################
+
+If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
+    {
+    Get-ChildItem (Join-Path $gibbunInstallDir GibbunInstalls\Downloads\* ) | Remove-Item -Recurse -Force
+    }
+
+###########################################################################################################################################################################################################################################
+### END OF CLEAR DOWNLOADS STAGING FOLDER #################################################################################################################################################################################################
 ###########################################################################################################################################################################################################################################
 
 ###########################################################################################################################
