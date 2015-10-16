@@ -624,10 +624,10 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
             #If no install check script, check if package is installed via registry
             Else
                 {
-                #if $installedSoftware contains a required installed package name (meaning its already installed), remove it from $notInstalledSoftware
+                #if $installedSoftware contains a required installed package name (meaning its already installed), and version is less than or equal to package version, remove it from $notInstalledSoftware
                 ForEach ($package in $finalSoftwareVersions)
                     {
-                    If ($installedSoftware.Name.Contains($package.registry_name))
+                    If (($installedSoftware.Name.Contains($package.registry_name)) -and ($installedSoftware.Version -le $package.version))
                         {
                         $notInstalledSoftware.remove($package)
                         }
@@ -668,10 +668,10 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
             #If no install check script, check if package is installed via registry
             Else
                 {           
-                #if $installedSoftware contains a required installed package name (meaning its already installed), remove it from $notInstalledRequiredSoftware
+                #if $installedSoftware contains a required installed package name (meaning its already installed), and version is less than or equal to package version, remove it from $notInstalledRequiredSoftware
                 ForEach ($package in $finalRequiredSoftwareVersions)
                     {
-                    If ($installedSoftware.Name.Contains($package.registry_name))
+                    If (($installedSoftware.Name.Contains($package.registry_name)) -and ($installedSoftware.Version -le $package.version))
                         {
                         $notInstalledRequiredSoftware.Remove($package)
                         }
