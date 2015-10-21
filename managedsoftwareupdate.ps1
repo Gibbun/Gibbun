@@ -491,7 +491,7 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     $softwareVersions = $softwareVersionsArray|Group-Object name|ForEach-Object {$_.Group[0]}
     
     #create $finalSoftwareVariable to avoid fixed size error when removing objects from array    
-    [system.collections.arraylist]$finalSoftwareVersions = $softwareVersions
+    [system.collections.arraylist]$finalSoftwareVersions = @($softwareVersions)
      
     #determine packages in catalog that intersect with manifest. remove those that do not intersect   
     ForEach ($package in $softwareVersions)
@@ -541,14 +541,17 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     $requiredSoftwareVersions = $SoftwareVersionsArray|Group-Object name|ForEach-Object {$_.Group[0]}
     
     #create $finalRequiredSoftwareVariable to avoid fixed size error when removing objects from array    
-    [system.collections.arraylist]$finalRequiredSoftwareVersions = $requiredSoftwareVersions
+    [system.collections.arraylist]$finalRequiredSoftwareVersions = @($requiredSoftwareVersions)
      
     #determine packages in catalog that intersect with required installs. remove those that do not intersect   
     ForEach ($package in $requiredSoftwareVersions)
         {       
-        If (-Not($requiredInstalls.requires.name.Contains($package.name)))
+        If (($requiredInstalls.requires.name -ne $Null) -and ($requiredInstalls.requires.name -ne ""))
             {
-            $finalRequiredSoftwareVersions.Remove($package)
+            If (-Not($requiredInstalls.requires.name.Contains($package.name)))
+                {
+                $finalRequiredSoftwareVersions.Remove($package)
+                }
             }
         }
     }
@@ -631,95 +634,82 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     $installedSoftware = Get-InstalledSoftware{localhost}
 
     #uncomment next line to display all software installed
-    #Get-InstalledSoftware{localhost}
+    #$installedSoftware
 
     #create $notInstalledSoftware array list to avoid fixed size error when removing objects from array    
-    [system.collections.arraylist]$notInstalledSoftware = $finalSoftwareVersions
-    
+    [system.collections.arraylist]$notInstalledSoftware = @($finalSoftwareVersions)
+
     #for each software install, check if preinstall check script exists. If it does, run it.
-    Try
+    ForEach ($package in $finalSoftwareVersions)
         {
-        ForEach ($package in $finalSoftwareVersions)
+        If ($package.installcheck_script -ne $Null -and $package.installcheck_script -ne "")
             {
-            If ($package.installcheck_script -ne $Null -and $package.installcheck_script -ne "")
-                {
-                #read install check script for each software and write it to string
-                [String]$installCheck_ScriptString = $package.installcheck_script
+            #read install check script for each software and write it to string
+            [String]$installCheck_ScriptString = $package.installcheck_script
 
-                #convert string to scriptblock
-                $installCheck_Script = [Scriptblock]::Create($installCheck_ScriptString)
+            #convert string to scriptblock
+            $installCheck_Script = [Scriptblock]::Create($installCheck_ScriptString)
 
-                #pass in the base64 encoded version of the script to avoid possible issues if it uses escape characters
-                $encodedInstallCheck_Script = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($installCheck_Script))
+            #pass in the base64 encoded version of the script to avoid possible issues if it uses escape characters
+            $encodedInstallCheck_Script = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($installCheck_Script))
             
-                #start separate powershell instance to process the install check script
-                $installCheck_ScriptProcess = (Start-Process powershell.exe -ArgumentList "-EncodedCommand",$encodedInstallCheck_Script -PassThru -Wait)
+            #start separate powershell instance to process the install check script
+            $installCheck_ScriptProcess = (Start-Process powershell.exe -ArgumentList "-EncodedCommand",$encodedInstallCheck_Script -PassThru -Wait)
 
-                #if exit code does not equal 0, software is considered to be installed and removed from list of software to download and install
-                If ($installCheck_ScriptProcess.ExitCode -ne 0)
-                    {
-                    $notInstalledSoftware.Remove($package)
-                    }
-                }
-            #If no install check script, check if package is installed via registry
-            Else
+            #if exit code does not equal 0, software is considered to be installed and removed from list of software to download and install
+            If ($installCheck_ScriptProcess.ExitCode -ne 0)
                 {
-                #if $installedSoftware contains a required installed package name (meaning its already installed), and version is less than or equal to package version, remove it from $notInstalledSoftware
-                ForEach ($package in $finalSoftwareVersions)
-                    {
-                    If (($installedSoftware.Name.Contains($package.registry_name)) -and ($installedSoftware.Version -le $package.version))
-                        {
-                        $notInstalledSoftware.remove($package)
-                        }
-                    }
+                $notInstalledSoftware.Remove($package)
+                }
+            }
+        
+        #If no install check script, check if package is installed via registry
+        Else
+            {
+            #if $installedSoftware contains a required installed package name (meaning its already installed), and version is less than or equal to package version, remove it from $notInstalledSoftware
+            If (($installedSoftware.Name.Contains($package.registry_name)) -and ($installedSoftware.Version -le $package.version))
+                {
+                $notInstalledSoftware.remove($package)
                 }
             }
         }
-    Catch{}
 
     #create $notInstalledRequiredSoftware array list to avoid fixed size error when removing objects from array    
-    [system.collections.arraylist]$notInstalledRequiredSoftware = $finalRequiredSoftwareVersions
+    [system.collections.arraylist]$notInstalledRequiredSoftware = @($finalRequiredSoftwareVersions)
     
     #for each required software install, check if preinstall check script exists. If it does, run it.
-    Try
+    ForEach ($package in $finalRequiredSoftwareVersions)
         {
-        ForEach ($package in $finalRequiredSoftwareVersions)
-        {
-            If ($package.installcheck_script -ne $Null -and $package.installcheck_script -ne "")
-                {
-                #read install check script for each software and write it to string
-                [String]$installCheck_ScriptString = $package.installcheck_script
+        If ($package.installcheck_script -ne $Null -and $package.installcheck_script -ne "")
+            {
+            #read install check script for each software and write it to string
+            [String]$installCheck_ScriptString = $package.installcheck_script
 
-                #convert string to scriptblock
-                $installCheck_Script = [Scriptblock]::Create($installCheck_ScriptString)
+            #convert string to scriptblock
+            $installCheck_Script = [Scriptblock]::Create($installCheck_ScriptString)
 
-                #pass in the base64 encoded version of the script to avoid possible issues if it uses escape characters
-                $encodedInstallCheck_Script = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($installCheck_Script))
+            #pass in the base64 encoded version of the script to avoid possible issues if it uses escape characters
+            $encodedInstallCheck_Script = [Convert]::ToBase64String([System.Text.Encoding]::Unicode.GetBytes($installCheck_Script))
             
-                #start separate powershell instance to process the install check script
-                $installCheck_ScriptProcess = (Start-Process powershell.exe -ArgumentList "-EncodedCommand",$encodedInstallCheck_Script -PassThru -Wait)
+            #start separate powershell instance to process the install check script
+            $installCheck_ScriptProcess = (Start-Process powershell.exe -ArgumentList "-EncodedCommand",$encodedInstallCheck_Script -PassThru -Wait)
 
-                #if exit code does not equal 0, software is considered to be installed and removed from list of software to download
-                If ($installCheck_ScriptProcess.ExitCode -ne 0)
-                    {
-                    $notInstalledRequiredSoftware.Remove($package)
-                    }
+            #if exit code does not equal 0, software is considered to be installed and removed from list of software to download
+            If ($installCheck_ScriptProcess.ExitCode -ne 0)
+                {
+                $notInstalledRequiredSoftware.Remove($package)
                 }
-            #If no install check script, check if package is installed via registry
-            Else
-                {           
-                #if $installedSoftware contains a required installed package name (meaning its already installed), and version is less than or equal to package version, remove it from $notInstalledRequiredSoftware
-                ForEach ($package in $finalRequiredSoftwareVersions)
-                    {
-                    If (($installedSoftware.Name.Contains($package.registry_name)) -and ($installedSoftware.Version -le $package.version))
-                        {
-                        $notInstalledRequiredSoftware.Remove($package)
-                        }
-                    }
+            }
+        #If no install check script, check if package is installed via registry
+        Else
+            {           
+            #if $installedSoftware contains a required installed package name (meaning its already installed), and version is less than or equal to package version, remove it from $notInstalledRequiredSoftware
+            If (($installedSoftware.Name.Contains($package.registry_name)) -and ($installedSoftware.Version -le $package.version))
+                {
+                $notInstalledRequiredSoftware.Remove($package)
                 }
             }
         }
-    Catch{}
     }
 
 #####################################################################################################################################
@@ -733,7 +723,7 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
     #create $packageDownloads array list to avoid fixed size error when removing objects from array    
-    [system.collections.arraylist]$packageDownloads = $notInstalledSoftware
+    [system.collections.arraylist]$packageDownloads = @($notInstalledSoftware)
 
     #determine packages in client manifest that intersect with required installs. remove the duplicates to prevent duplicate downloads  
     ForEach ($package in $notInstalledRequiredSoftware)
@@ -775,6 +765,8 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 
     If ($packageDownloads -ne $null)
         {
+        #line break for easier reading
+        Write-Host `n
         Write-Host "The following packages will be downloaded and installed:"
         ForEach ($package in $packageDownloads)
             {
@@ -804,14 +796,13 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
         $softwareName = $package.name
         $softwareVersion = $package.version
         $softwareInstallerLocation = $package.installer_location
+		$softwareInstallerDownloadLocation = $package.download_location
+        
         Write-Host "Downloading $softwareName $softwareVersion"
     
         #Attempt to download package
         Try
             {
-            #replace backslashes with forward slashes to correct web server path to work for download path
-            $softwareInstallerDownloadLocation=$softwareInstallerLocation -replace "/", "\"
-
             #Create download directory if it doesn't exist.
             New-Item -ItemType Directory -Force -Path ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) | Out-Null
 
@@ -835,7 +826,125 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
+    #create $notInstalledSoftwareNoDuplicates array list to avoid fixed size error when removing objects from array
+    [system.collections.arraylist]$notInstalledSoftwareNoDuplicates = @($notInstalledSoftware)
     
+    #install required installs first
+    ForEach ($package in $notInstalledRequiredSoftware)
+        {
+        $softwareName = $package.name
+        $softwareVersion = $package.version
+        $softwareInstallerLocation = $package.installer_location
+        $softwareArguments = $package.installer_arguments
+        
+        #replace backslashes with forward slashes to correct web server path to work for download path
+        $softwareInstallerDownloadLocation=$softwareInstallerLocation -replace "/", "\"
+
+        #display install
+        Write-Host "Installing $softwareName $softwareVersion"
+
+        #If installer is an EXE
+        If ($package.installer_type -eq "EXE")
+            {
+            Try
+                {                
+                #read installer location and arguments for each software and write it to strings
+                [String]$softwareInstallerString = '"' + ($gibbunInstallDir + '\GibbunInstalls\Downloads\' + $softwareInstallerDownloadLocation) + '"'
+                [String]$softwareInstallerArguments = $softwareArguments
+
+                #check if softwareArguments is empty or null
+                If ($softwareInstallerArguments -ne $Null -and $softwareInstallerArguments -ne "")
+                    {
+                    #run installer w/ arguments
+                    $installer = Start-Process -Wait  -FilePath $softwareInstallerString -ArgumentList $softwareInstallerArguments
+                    }
+                Else
+                    {
+                    #run installer w/o arguments
+                    $installer = Start-Process -Wait  -FilePath $softwareInstallerString
+                    }
+                }
+            Catch{Write-Host "Encountered an error installing" $softwareName $softwareVersion}
+             }                
+
+        #Else if installer is an MSI
+        ElseIf ($package.installer_type -eq "MSI")
+            {
+            Try
+                {
+                #read installer location and arguments for each software and write it to string
+                [String]$softwareInstallerString = "/i " + '"' + ($gibbunInstallDir + '\GibbunInstalls\Downloads\' + $softwareInstallerDownloadLocation) + '"' + $softwareArguments
+            
+                #run installer
+                (Start-Process -FilePath "msiexec.exe" -ArgumentList $softwareInstallerString -Wait -Passthru).ExitCode
+                }
+            Catch
+                {
+                Write-Host "Encountered an error installing $softwareName $softwareVersion"
+                }
+            }
+
+        #remove any required installs that are in the regular installs to avoid running duplicate installations
+        If ($notInstalledSoftwareNoDuplicates.name.Contains($package.name))
+            {
+            $notInstalledSoftwareNoDuplicates.Remove($package)
+            }
+        }###
+
+    #install software installs second
+    ForEach ($package in $notInstalledSoftwareNoDuplicates)
+        {
+        $softwareName = $package.name
+        $softwareVersion = $package.version
+        $softwareInstallerLocation = $package.installer_location
+        $softwareArguments = $package.installer_arguments
+        
+        #replace backslashes with forward slashes to correct web server path to work for download path
+        $softwareInstallerDownloadLocation=$softwareInstallerLocation -replace "/", "\"
+
+        #display install
+        Write-Host "Installing $softwareName $softwareVersion"
+
+        #If installer is an EXE
+        If ($package.installer_type -eq "EXE")
+            {
+            Try
+                {
+                #read installer location and arguments for each software and write it to strings
+                [String]$softwareInstallerString = '"' + ($gibbunInstallDir + '\GibbunInstalls\Downloads\' + $softwareInstallerDownloadLocation) + '"'
+                [String]$softwareInstallerArguments = $softwareArguments
+
+                #check if softwareArguments is empty or null
+                If ($softwareInstallerArguments -ne $Null -and $softwareInstallerArguments -ne "")
+                    {
+                    #run installer w/ arguments
+                    $installer = Start-Process -Wait  -FilePath $softwareInstallerString -ArgumentList $softwareInstallerArguments
+                    }
+                Else
+                    {
+                    #run installer w/o arguments
+                    $installer = Start-Process -Wait  -FilePath $softwareInstallerString
+                    }                
+                }
+            Catch
+                {
+                Write-Host "Encountered an error installing $softwareName"
+                }
+            }
+        #If installer is an MSI
+        ElseIf ($package.installer_type -eq "MSI")
+            {
+            #read installer location and arguments for each software and write it to string
+            [String]$softwareInstallerString = "/i " + '"' + ($gibbunInstallDir + '\GibbunInstalls\Downloads\' + $softwareInstallerDownloadLocation) + '"' + $softwareArguments
+
+            #run installer
+            (Start-Process -FilePath "msiexec.exe" -ArgumentList $softwareInstallerString -Wait -Passthru).ExitCode
+            }
+        Else
+            {
+            Write-Host "Encountered an error while installing $softwareName $softwareVersion"
+            }
+        }
     }
 
 ###########################################################################################################################################################################################################################################
