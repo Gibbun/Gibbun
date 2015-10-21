@@ -97,7 +97,7 @@ If ($userCheck.count -ge 1)
     }
 Else
     {
-    Write-Host "There are currently NO users logged on to this machine" -ForegroundColor 'Green'
+    Write-Host "No users are currently logged on to this machine" -ForegroundColor 'Green'
     $userLoggedOn = $False
     }
 
@@ -762,8 +762,12 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
         #line break for easier reading
         Write-Host `n
         }
-
-    If ($packageDownloads -ne $null)
+   
+    If ($packageDownloads.count -eq 0)
+        {
+        Write-Host "No packages to download or install..."
+        }
+    If ($packageDownloads.count -gt 0)
         {
         #line break for easier reading
         Write-Host `n
@@ -790,28 +794,31 @@ If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
 
 If ((-Not(($windowsUpdatesOnly))) -and ($haveManifest))
     {
-    Write-Host "Begin Downloading packages"
-    foreach ($package in $packageDownloads)
-        {      
-        $softwareName = $package.name
-        $softwareVersion = $package.version
-        $softwareInstallerLocation = $package.installer_location
-		$softwareInstallerDownloadLocation = $package.download_location
+    If ($packageDownloads -ne $Null)
+        {
+        Write-Host "Begin Downloading packages"
+        foreach ($package in $packageDownloads)
+            {      
+            $softwareName = $package.name
+            $softwareVersion = $package.version
+            $softwareInstallerLocation = $package.installer_location
+		    $softwareInstallerDownloadLocation = $package.download_location
         
-        Write-Host "Downloading $softwareName $softwareVersion"
+            Write-Host "Downloading $softwareName $softwareVersion"
     
-        #Attempt to download package
-        Try
-            {
-            #Create download directory if it doesn't exist.
-            New-Item -ItemType Directory -Force -Path ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) | Out-Null
+            #Attempt to download package
+            Try
+                {
+                #Create download directory if it doesn't exist.
+                New-Item -ItemType Directory -Force -Path ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) | Out-Null
 
-            #download installer
-            Start-BitsTransfer -Source ($softwareRepoURL + "/packages/" + $softwareInstallerLocation) -Destination ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) -TransferType Download -ErrorAction Stop
-            }
-        Catch
-            {
-            Write-Verbose "Encountered an error downloading $softwareName $softwareVersion"
+                #download installer
+                Start-BitsTransfer -Source ($softwareRepoURL + "/packages/" + $softwareInstallerLocation) -Destination ($gibbunInstallDir + "\GibbunInstalls\Downloads\" + $softwareInstallerDownloadLocation) -TransferType Download -ErrorAction Stop
+                }
+            Catch
+                {
+                Write-Verbose "Encountered an error downloading $softwareName $softwareVersion"
+                }
             }
         }
     }
